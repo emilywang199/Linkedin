@@ -1,6 +1,6 @@
 ---
 title: "Assessing the risk of child labor in Ethiopia and Uganda"
-author: "Melody Owen, Maitreyi Gunye, and Emily Wang"
+author: "Emily Wang"
 header-includes:
    - \usepackage{array}
 date: ""
