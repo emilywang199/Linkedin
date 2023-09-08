@@ -1,7 +1,6 @@
 ---
-title: "36-726 Final Models"
-author: "Melody Owen, Maitreyi Gunye, Emily Wang"
-date: "April 8, 2018"
+title: "Final Models"
+author: "Emily Wang"
 output: 
   pdf_document:
     fig_height: 3
