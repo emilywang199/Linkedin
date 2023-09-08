@@ -1,7 +1,6 @@
 ---
-title: "36-726 Final EDA"
-author: "Melody Owen, Maitreyi Gunye, Emily Wang"
-date: "March 25, 2018"
+title: "Final EDA"
+author: "Emily Wang"
 output: 
   pdf_document:
     fig_height: 3
