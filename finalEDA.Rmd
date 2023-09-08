@@ -1,0 +1,114 @@
+---
+title: "36-726 Final EDA"
+author: "Melody Owen, Maitreyi Gunye, Emily Wang"
+date: "March 25, 2018"
+output: 
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+  html_document:
+    fig_height: 3
+    fig_width: 5
+  word_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r, setup, include=FALSE}
+require(mosaic)
+require(ggplot2)
+require(tidyr)
+require(xtable)
+require(reshape2)
+require(dplyr)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+
+ggplot_missing <- function(x){
+  
+  x %>% 
+    is.na %>%
+    melt %>%
+    ggplot(data = .,
+           aes(x = X2,
+               y = X1)) +
+    geom_raster(aes(fill = value)) +
+    scale_fill_grey(name = "",
+                    labels = c("Present","Missing")) +
+    theme_minimal() + 
+    theme(axis.text.x  = element_text(angle=45, vjust=0.5)) + 
+    labs(x = "Variables in Dataset",
+         y = "Rows / observations")
+}
+
+# Loading in Ethiopia datasets
+ethiopia <- read.csv("../../Data/FinalData/ethiopiaFinal.csv",
+                     stringsAsFactors = FALSE)
+ethiopiaHousehold <- read.csv("../../Data/FinalData/ethiopiaHousehold.csv",
+                     stringsAsFactors = FALSE)
+ethiopiaIndividual <- read.csv("../../Data/FinalData/ethiopiaIndividual.csv",
+                     stringsAsFactors = FALSE)
+
+# Loading in Uganda datasets
+uganda <- read.csv("../../Data/FinalData/ugandaFinal.csv",
+                     stringsAsFactors = FALSE)
+ugandaHousehold <- read.csv("../../Data/FinalData/ugandaHousehold.csv",
+                     stringsAsFactors = FALSE)
+ugandaIndividual <- read.csv("../../Data/FinalData/ugandaIndividual.csv",
+                     stringsAsFactors = FALSE)
+```
+
+# Ethiopia
+
+## Ethiopia Household Level Data
+
+```{r}
+# outcome of childNumDefiniteHazard Ethiopia
+ggplot(ethiopiaHousehold, aes(childNumDefiniteHazard)) + geom_bar()
+
+# outcome of childNumDefiniteWorst Ethiopia
+ggplot(ethiopiaHousehold, aes(childNumDefiniteWorst)) + geom_bar()
+```
+
+
+## Ethiopia Individual Level Data
+
+```{r}
+# outcome of anyDefiniteHazardInd Ethiopia
+# 31 total categories
+ggplot(ethiopiaIndividual, aes(anyDefiniteHazardInd)) + geom_bar()
+
+# outcome of anyDefiniteWorstInd Ethiopia
+# 37 total categories
+ggplot(ethiopiaIndividual, aes(anyDefiniteWorstInd)) + geom_bar()
+```
+
+# Uganda
+
+## Uganda Household Level Data
+
+```{r}
+# outcome of childNumDefiniteHazard Uganda
+ggplot(ugandaHousehold, aes(childNumDefiniteHazard)) + geom_bar()
+
+# outcome of childNumDefiniteWorst Uganda
+ggplot(ugandaHousehold, aes(childNumDefiniteWorst)) + geom_bar()
+```
+
+
+## Uganda Individual Level Data
+
+```{r}
+# outcome of anyDefiniteHazardInd Uganda
+# 14 total categories
+ggplot(ugandaIndividual, aes(anyDefiniteHazardInd)) + geom_bar()
+
+# outcome of anyDefiniteWorstInd Uganda
+# 22 total categories
+ggplot(ugandaIndividual, aes(anyDefiniteWorstInd)) + geom_bar()
+```
+
