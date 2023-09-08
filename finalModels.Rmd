@@ -1,0 +1,378 @@
+---
+title: "36-726 Final Models"
+author: "Melody Owen, Maitreyi Gunye, Emily Wang"
+date: "April 8, 2018"
+output: 
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+  html_document:
+    fig_height: 3
+    fig_width: 5
+  word_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+require(tidyr)
+require(ggplot2)
+require(car)
+require(leaps)
+require(MASS)
+require(dplyr)
+require(randomForest)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+
+# Loading in Ethiopia datasets
+ethiopia <- read.csv("../../Data/FinalData/ethiopiaFinal.csv",
+                     stringsAsFactors = FALSE)
+ethiopiaHousehold <- read.csv("../../Data/FinalData/ethiopiaHousehold.csv",
+                     stringsAsFactors = FALSE)
+ethiopiaIndividual <- read.csv("../../Data/FinalData/ethiopiaIndividual.csv",
+                     stringsAsFactors = FALSE)
+
+# Loading in Uganda datasets
+uganda <- read.csv("../../Data/FinalData/ugandaFinal.csv",
+                     stringsAsFactors = FALSE)
+ugandaHousehold <- read.csv("../../Data/FinalData/ugandaHousehold.csv",
+                     stringsAsFactors = FALSE)
+ugandaIndividual <- read.csv("../../Data/FinalData/ugandaIndividual.csv",
+                     stringsAsFactors = FALSE)
+```
+
+```{r}
+# establishing cutoffs for the binary outcomes in Ethiopia
+ethiopiaHouseholdm <- ethiopiaHousehold %>%
+  mutate(childNumDefiniteHazardCat = ifelse(childNumDefiniteHazard > 0, 1, 0),
+         childNumDefiniteWorstCat = ifelse(childNumDefiniteWorst > 0, 1, 0))
+
+ethiopiaIndividualm <- ethiopiaIndividual %>%
+  mutate(anyDefiniteHazardIndCat = ifelse(anyDefiniteHazardInd > 0, 1, 0),
+         anyDefiniteWorstIndCat = ifelse(anyDefiniteWorstInd > 0, 1, 0))
+
+# establishing cutoffs for the binary outcomes in Uganda
+ugandaHouseholdm <-ugandaHousehold %>%
+  mutate(childNumDefiniteHazardCat = ifelse(childNumDefiniteHazard > 0, 1, 0),
+         childNumDefiniteWorstCat = ifelse(childNumDefiniteWorst > 0, 1, 0))
+
+ugandaIndividualm <- ugandaIndividual %>%
+  mutate(anyDefiniteHazardIndCat = ifelse(anyDefiniteHazardInd > 0, 1, 0),
+         anyDefiniteWorstIndCat = ifelse(anyDefiniteWorstInd > 0, 1, 0))
+```
+
+
+```{r}
+#set up training and testing sets in train dataset
+set.seed(5)
+
+#we seen before in the graphs there only a few observations of Age group less than 18. We delete this out of our data set.
+set <- nrow(ethiopiaHouseholdm)*3/4
+numtrain <- sample(1:dim(ethiopiaHouseholdm)[1], round(set), replace = FALSE, prob = NULL)
+opp <- -numtrain
+trainset <- ethiopiaHouseholdm[sort(numtrain), ]
+testset <- ethiopiaHouseholdm[opp, ]
+```
+
+
+# Modeling for Ethiopia
+
+##  Ethiopia Household Level Data
+
+There are 2231 observations in the Ethiopia household data, meanining that there are 2231 different households.
+
+### Predicting `childNumDefiniteHazard` and `childNumDefiniteHazardCat` in Ethiopia
+
+In these models, we predict the number of children between ages 5 and 17 in a household that had any definite indication of being in hazardous work. We also predict this outcome as a binary outcome, i.e. if a house had any children in hazardous work.
+
+```{r}
+View(ethiopiaHouseholdm)
+# childNumDefiniteHazard
+fullModel <- lm(childNumDefiniteHazard ~ avg517Age + avgAdultAge + headType + 
+                  totalChild517 + residenceType + homeRooms + totalIncome +
+                  homeOwner + ageMax + ageMin,
+                data = ethiopiaHouseholdm)
+summary(fullModel)
+
+reduce1 <- lm(childNumDefiniteHazard ~ avg517Age + avgAdultAge + headType + 
+                  totalChild517 + residenceType + totalIncome +
+                  homeOwner + ageMax + ageMin,
+                data = ethiopiaHouseholdm)
+summary(reduce1)
+###
+trainset <- ethiopiaHouseholdm[sort(numtrain), ]
+testset 
+
+###
+model <- glm(Q8_Quality_of_Care ~.-PatientKey - ClientKey ,family=binomial(link='logit'),data=trainset)
+print(summary(model), digits = 1)
+AIC(model)
+pred_glm <- predict(model, testset)
+pred_glm_factor <- factor(as.numeric(pred_glm > 0), levels = 0:1 )
+head(data.frame(pred_glm,pred_glm_factor), 30)
+caret::confusionMatrix(pred_glm_factor, as.factor(testset$Q8_Quality_of_Care))
+
+#coefficents for interpretation
+data.frame(expcoef = round(exp(model$coefficients),2))
+
+```
+
+
+```{r}
+# childNumDefiniteHazardCat
+trainset <- ethiopiaHouseholdm[sort(numtrain), ]
+levels(as.factor(testset$homeOwner))
+levels(as.factor(trainset$homeOwner))
+testset <- testset[!testset$homeOwner == "Subsidized by employer",]
+
+fullModel <- glm(childNumDefiniteHazardCat ~ avg517Age + avgAdultAge + headType + 
+                  totalChild517 + residenceType + homeRooms + totalIncome +
+                  homeOwner + ageMax + ageMin,
+                data = trainset, family = "binomial")
+summary(fullModel)
+print(summary(fullModel), digits = 1)
+AIC(fullModel)
+pred_glm <- predict(fullModel, testset[c(7,8,2,13,17,19,20,18,4,3)])
+pred_glm_factor <- factor(as.numeric(pred_glm > 0), levels = 0:1 )
+head(data.frame(pred_glm,pred_glm_factor), 30)
+caret::confusionMatrix(pred_glm_factor, as.factor(testset$childNumDefiniteHazardCat))
+data.frame(expcoef = round(exp(fullModel$coefficients),2))
+
+
+fullModel1 <- glm(childNumDefiniteHazardCat ~ avg517Age +  headType + 
+                  totalChild517 + residenceType +  totalIncome +
+                   ageMin,
+                data = trainset, family = "binomial")
+summary(fullModel1)
+print(summary(fullModel1), digits = 1)
+AIC(fullModel1)
+names(testset)
+pred_glm1 <- predict(fullModel1, testset[,c(7,2,13,17,20,3)])
+pred_glm_factor1 <- factor(as.numeric(pred_glm1 > 0), levels = 0:1 )
+head(data.frame(pred_glm1,pred_glm_factor1), 30)
+caret::confusionMatrix(pred_glm_factor, as.factor(testset$childNumDefiniteHazardCat))
+
+data.frame(expcoef = round(exp(fullModel$coefficients),2))
+
+anova(fullModel1,fullModel, test = "Chisq") 
+
+Sensitivity <- data.frame(testset$childNumDefiniteHazardCat, pred_glm_factor1, testset$quesID)
+
+#testset 0 then prediction be 1
+Problems <- Sensitivity %>% filter(testset.childNumDefiniteHazardCat == 0, pred_glm_factor1 == 1) 
+#find those problem rows in testset to look at
+ProbX <- testset[testset$quesID %in% Problems$testset.quesID, ]
+head(ProbX, 50)
+
+prob <- ethiopiaHousehold[ethiopiaHousehold$quesID %in% Problems$testset.quesID, ]
+View(prob)
+sum(prob$hazardLaborHouseCat)/dim(prob)[1]
+
+Problems <- Sensitivity %>% filter(testset.childNumDefiniteHazardCat == 0, pred_glm_factor1 == 0) 
+#find those problem rows in testset to look at
+ProbX <- testset[testset$quesID %in% Problems$testset.quesID, ]
+head(ProbX, 50)
+
+prob <- ethiopiaHousehold[ethiopiaHousehold$quesID %in% Problems$testset.quesID, ]
+View(prob)
+sum(prob$hazardLaborHouseCat)/dim(prob)[1]
+
+#random Forest
+#only does slightly better not worth it due to computational
+trainset <- na.omit(trainset, cols = childNumDefiniteHazardCat) 
+trainset=trainset %>% mutate_if(is.character, as.factor)
+output.forest <- randomForest(childNumDefiniteHazardCat ~ avg517Age +  headType + 
+                  totalChild517 + residenceType +  totalIncome +
+                   ageMin, data = trainset, ntree=100, importance = TRUE)
+importance <- importance(output.forest)
+testset <- testset[c(7,2,13,17,20,18,3),]
+names(testset)
+pred_rf <- predict(output.forest, testset)
+caret::confusionMatrix(pred_rf, testset$Q8_Quality_of_Care)
+varImpPlot(output.forest, sort = T, n.var = 10, main = 'Top 10 Feature Importance')
+
+
+plot(output.forest)
+
+#use this plot to help us determine the number of trees. As the number of trees increases, 
+#the OOB error rate decreases, and then becomes almost constant. We are not able to decrease
+#the OOB error rate after about around 20 trees.
+#want to tune random forest
+
+responseCol <- match("Q8_Quality_of_Care", names(trainset))
+extra <- match("PatientKey", names(trainset))
+extra1 <- match("ClientKey", names(trainset))
+t <- tuneRF(trainset[, -c(responseCol,extra)], trainset[, responseCol], stepFactor = 0.5, plot = TRUE, ntreeTry = 15, trace = TRUE, improve = 0.05)
+
+#create 2nd random forest with tuned parameters
+rfModel_new <- randomForest(Q8_Quality_of_Care ~ .- PatientKey -ClientKey, trainset, ntree = 15, mtry = 3, importance = TRUE, proximity = TRUE)
+print(rfModel_new)
+pred_rf2 <- predict(rfModel_new, testset)
+caret::confusionMatrix(pred_rf2, testset$Q8_Quality_of_Care)
+varImpPlot(rfModel_new, sort=T, n.var = 10, main = 'Top 10 Feature Importance')
+
+
+
+
+```
+
+### Predicting `childNumDefiniteWorst` and `childNumDefiniteWorstCat` in Ethiopia
+
+In these models, we predict the number of children between ages 5 and 17 in a household that had any definite indication of being in the worst form of child labor. We also predict this outcome as a binary outcome.
+
+```{r}
+# childNumDefiniteWorst
+fullModel <- lm(childNumDefiniteWorst ~ avg517Age + avgAdultAge + headType + 
+                  totalChild517 + residenceType + homeRooms + totalIncome +
+                  homeOwner + ageMax + ageMin,
+                data = ethiopiaHouseholdm)
+summary(fullModel)
+```
+
+```{r}
+# childNumDefiniteWorstCat
+fullModel <- glm(childNumDefiniteWorstCat ~ avg517Age + avgAdultAge + headType + 
+                  totalChild517 + residenceType + homeRooms + totalIncome +
+                  homeOwner + ageMax + ageMin,
+                data = ethiopiaHouseholdm, family = "binomial")
+summary(fullModel)
+```
+
+## Ethiopia Individual Level Data
+
+There are 4251 observations in the Ethiopia individual level dataset, meaning that there are 4251 children between the ages of 5 and 17 in the data.
+
+### Predicting `anyDefiniteHazardInd` and `anyDefiniteHazardIndCat` in Ethiopia
+
+In these models, we predict the number of instances that a child between 5 and 17 answered "yes" for an indicator of hazardous work. We also predict this as a binary outcome, i.e. whether or not a child said yes to *any* indicator that would mean they are in hazarodous work. There are 31 total categories that contribute to this parameter.
+
+```{r}
+# anyDefiniteHazardInd
+fullModel <- lm(anyDefiniteHazardInd ~ age + sex + readWrite +
+                  headType + totalChild517 + residenceType + homeRooms + 
+                  avgChildAge + avgAdultAge,
+                data = ethiopiaIndividualm)
+summary(fullModel)
+```
+
+```{r}
+# anyDefiniteHazardIndCat
+fullModel <- glm(anyDefiniteHazardIndCat ~ age + sex + readWrite +
+                  headType + totalChild517 + residenceType + homeRooms + 
+                  avgChildAge + avgAdultAge, 
+                 data = ethiopiaIndividualm, family = "binomial")
+summary(fullModel)
+```
+
+### Predicting `anyDefiniteWorstInd` and `anyDefiniteWorstIndCat` in Ethiopia
+
+In these models, we predict the number of instances that a child between 5 and 17 answered "yes" for an indicator of worst child labor. We also predict this as a binary outcome, i.e. whether or not a child said yes to *any* indicator that would mean they are in the worst form of child labor. There are 37 total categories that contribute to this parameter.
+
+```{r}
+# anyDefiniteWorstInd
+fullModel <- lm(anyDefiniteWorstInd ~ age + sex + readWrite +
+                  headType + totalChild517 + residenceType + homeRooms + 
+                  avgChildAge + avgAdultAge,
+                data = ethiopiaIndividualm)
+summary(fullModel)
+```
+
+```{r}
+# anyDefiniteWorstIndCat
+fullModel <- lm(anyDefiniteWorstIndCat ~ age + sex + readWrite +
+                  headType + totalChild517 + residenceType + homeRooms + 
+                  avgChildAge + avgAdultAge,
+                data = ethiopiaIndividualm)
+summary(fullModel)
+```
+
+# Modeling for Uganda
+
+## Uganda Household Level Data
+
+In the Uganda household level data, there are 617 observations, meaning 617 different households.
+
+### Predicting `childNumDefiniteHazard` and `childNumDefiniteHazardCat` in Uganda
+
+In these models, we predict the number of children between ages 5 and 17 in a household that had any definite indication of being in hazardous work. We also predict this outcome as a binary outcome, i.e. if a house had any children in hazardous work.
+
+```{r}
+# childNumDefiniteHazard
+fullModel <- lm(childNumDefiniteHazard ~ ,
+                data = ugandaHouseholdm)
+summary(fullModel)
+```
+
+```{r}
+# childNumDefiniteHazardCat
+fullModel <- glm(childNumDefiniteHazardCat ~ ,
+                data = ugandaHouseholdm, family = "binomial")
+summary(fullModel)
+
+```
+
+### Predicting `childNumDefiniteWorst` and `childNumDefiniteWorstCat` in Uganda
+
+In these models, we predict the number of children between ages 5 and 17 in a household that had any definite indication of being in the worst form of child labor. We also predict this outcome as a binary outcome. 
+
+```{r}
+# childNumDefiniteWorst
+fullModel <- lm(childNumDefiniteWorst ~ ,
+                data = ugandaHouseholdm)
+summary(fullModel)
+```
+
+```{r}
+# childNumDefiniteWorstCat
+fullModel <- glm(childNumDefiniteWorstCat ~ ,
+                data = ugandaHouseholdm, family = "binomial")
+summary(fullModel)
+```
+
+## Uganda Individual Level Data
+
+In the Uganda individual level data, there are 2264 observations, meaning there are 2264 children between the ages of 5 to 17.
+
+### Predicting `anyDefiniteHazardInd` and `anyDefiniteHazardIndCat` in Uganda
+
+In these models, we predict the number of instances that a child between 5 and 17 answered "yes" for an indicator of hazardous work. We also predict this as a binary outcome, i.e. whether or not a child said yes to *any* indicator that would mean they are in hazarodous work. There are 14 total categories that contribute to this parameter.
+
+```{r}
+# anyDefiniteHazardInd
+fullModel <- lm(anyDefiniteHazardInd ~ ,
+                data = ugandaIndividualm)
+summary(fullModel)
+```
+
+```{r}
+# anyDefiniteHazardIndCat
+fullModel <- glm(anyDefiniteHazardIndCat ~ ,
+                data = ugandaIndividualm, family = "binomial")
+summary(fullModel)
+```
+
+### Predicting `anyDefiniteWorstInd` and `anyDefiniteWorstIndCat` in Uganda
+
+In these models, we predict the number of instances that a child between 5 and 17 answered "yes" for an indicator of worst child labor. We also predict this as a binary outcome, i.e. whether or not a child said yes to *any* indicator that would mean they are in the worst form of child labor. There are 22 categories that contribute to this parameter.
+
+```{r}
+# anyDefiniteWorstInd
+fullModel <- lm(anyDefiniteWorstInd ~ ,
+                data = ugandaIndividualm)
+summary(fullModel)
+```
+
+```{r}
+# anyDefiniteWorstIndCat
+fullModel <- glm(anyDefiniteWorstIndCat ~ ,
+                data = ugandaIndividualm, family = "binomial")
+summary(fullModel)
+```
+
+
